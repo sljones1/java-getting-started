@@ -1,60 +1,38 @@
-import java.sql.*;
+import spark.ModelAndView;
+import spark.Route;
+import spark.TemplateViewRoute;
+import spark.template.freemarker.FreeMarkerEngine;
+import spark.utils.StringUtils;
+
 import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.Map;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-
 import static spark.Spark.*;
-import spark.template.freemarker.FreeMarkerEngine;
-import spark.ModelAndView;
-import static spark.Spark.get;
-
-import com.heroku.sdk.jdbc.DatabaseUrl;
 
 public class Main {
 
-  public static void main(String[] args) {
+    public static void main(String[] args) {
+        Integer port = 8080;
+        try {
+            String portString = System.getenv("PORT");
+            if (StringUtils.isNotEmpty(portString)) {
+                port = Integer.valueOf(portString);
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Not a Number");
+        }
+        port(port);
+        staticFileLocation("/public");
 
-    port(Integer.valueOf(System.getenv("PORT")));
-    staticFileLocation("/public");
+        Route route = (req, res) -> "Hello World";
+        get("/hello", route);
 
-    get("/hello", (req, res) -> "Hello World");
-
-    get("/", (request, response) -> {
+        TemplateViewRoute message = (request, response) -> {
             Map<String, Object> attributes = new HashMap<>();
             attributes.put("message", "Hello World!");
 
             return new ModelAndView(attributes, "index.ftl");
-        }, new FreeMarkerEngine());
-
-    get("/db", (req, res) -> {
-      Connection connection = null;
-      Map<String, Object> attributes = new HashMap<>();
-      try {
-        connection = DatabaseUrl.extract().getConnection();
-
-        Statement stmt = connection.createStatement();
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS ticks (tick timestamp)");
-        stmt.executeUpdate("INSERT INTO ticks VALUES (now())");
-        ResultSet rs = stmt.executeQuery("SELECT tick FROM ticks");
-
-        ArrayList<String> output = new ArrayList<String>();
-        while (rs.next()) {
-          output.add( "Read from DB: " + rs.getTimestamp("tick"));
-        }
-
-        attributes.put("results", output);
-        return new ModelAndView(attributes, "db.ftl");
-      } catch (Exception e) {
-        attributes.put("message", "There was an error: " + e);
-        return new ModelAndView(attributes, "error.ftl");
-      } finally {
-        if (connection != null) try{connection.close();} catch(SQLException e){}
-      }
-    }, new FreeMarkerEngine());
-
-  }
-
+        };
+        get("/", message, new FreeMarkerEngine());
+    }
 }
